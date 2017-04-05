@@ -165,7 +165,7 @@ report() {
   success="true"
 
   expires="$(get_expires)"
-  error="$(json-escape "$output")"
+  error="$(echo -n "$output" | json-escape)"
 
   if [ "$exit_code" != "0" ]; then
     success="false"
@@ -176,7 +176,7 @@ report() {
     --silent \
     -X POST \
     -H 'Content-Type: application/json' \
-    -d "{\"success\": $success, \"expires\": \"$expires\", \"error\": $error}" \
+    -d "{\"success\": $success, \"expires\": \"$expires\", \"error\": {\"message\": $error}}"
   > /dev/null
 }
 
@@ -255,6 +255,7 @@ main() {
   done
 
   assert_required_params "$github_token" "$github_repo" "$stack_path" "$report_url"
+
   ./setup.sh "$github_token" "$github_repo" "$stack_path" \
   && pushd "/workdir" > /dev/null \
   && connect_to_machine \
