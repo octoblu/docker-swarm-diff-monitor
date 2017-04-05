@@ -39,8 +39,9 @@ assert_required_params() {
   local github_token="$1"
   local github_repo="$2"
   local stack_path="$3"
+  local report_url="$4"
 
-  if [ -n "$github_token" ] && [ -n "$github_repo" ] && [ -n "$stack_path" ]; then
+  if [ -n "$github_token" ] && [ -n "$github_repo" ] && [ -n "$stack_path" ] && [ -n "$report_url" ]; then
     return 0
   fi
 
@@ -56,6 +57,10 @@ assert_required_params() {
 
   if [ -z "$stack_path" ]; then
     echo "Missing STACK_PATH environment variable"
+  fi
+
+  if [ -z "$report_url" ]; then
+    echo "Missing REPORT_URL environment variable"
   fi
 
   exit 1
@@ -144,14 +149,48 @@ get_machine_id() {
   return 1
 }
 
-run(){
-  local github_repo stack_path
-  github_repo="$1"
-  stack_path="$2"
+get_expires(){
+  local now_seconds expires_seconds expires
+  now_seconds="$(date --utc +"%s")"
+  let 'expires_seconds = now_seconds + 300'
 
-  pushd "repository/$stack_path" > /dev/null \
-  && connect_to_machine \
-  && env MACHINE_STORAGE_PATH="$(pwd)/docker-machine" docker-swarm-diff
+  date --iso-8601=seconds --utc --date="@$expires_seconds"
+}
+
+report() {
+  local error exit_code expires output report_url success
+  report_url="$1"
+  exit_code="$2"
+  output="$3"
+  success="true"
+
+  expires="$(get_expires)"
+  error="$(json-escape "$output")"
+
+  if [ "$exit_code" != "0" ]; then
+    success="false"
+  fi
+
+  curl "$report_url" \
+    --fail \
+    --silent \
+    -X POST \
+    -H 'Content-Type: application/json' \
+    -d "{\"success\": $success, \"expires\": \"$expires\", \"error\": $error}" \
+  > /dev/null
+}
+
+run(){
+  local report_url="$1"
+
+  while true; do
+    local output exit_code
+    output="$(env MACHINE_STORAGE_PATH="/workdir/docker-machine" docker-swarm-diff)"
+    exit_code="$?"
+
+    report "$report_url" "$exit_code" "$output" || exit 1
+    sleep 60
+  done
 }
 
 update_cert_permissions() {
@@ -174,6 +213,7 @@ main() {
   local github_token="$GITHUB_TOKEN"
   local github_repo="$GITHUB_REPO"
   local stack_path="$STACK_PATH"
+  local report_url="$REPORT_URL"
 
   # Define args up here
   while [ "$1" != "" ]; do
@@ -214,9 +254,11 @@ main() {
     shift
   done
 
-  assert_required_params "$github_token" "$github_repo" "$stack_path"
+  assert_required_params "$github_token" "$github_repo" "$stack_path" "$report_url"
   ./setup.sh "$github_token" "$github_repo" "$stack_path" \
-  && run "$github_repo" "$stack_path"
+  && pushd "/workdir" > /dev/null \
+  && connect_to_machine \
+  && run "$report_url"
 }
 
 main "$@"
