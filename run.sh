@@ -185,7 +185,7 @@ run(){
 
   while true; do
     local output exit_code
-    output="$(env MACHINE_STORAGE_PATH="/workdir/docker-machine" docker-swarm-diff)"
+    output="$(env MACHINE_STORAGE_PATH="/workdir/docker-machine" docker-swarm-diff 2>&1)"
     exit_code="$?"
 
     report "$report_url" "$exit_code" "$output" || exit 1
