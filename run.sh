@@ -1,6 +1,8 @@
 #!/bin/bash
 
 SCRIPT_NAME='run'
+TEST_INTERVAL='300' # seconds between
+TEST_EXPIRATION='600' # seconds a healthcheck is valid for
 
 matches_debug() {
   if [ -z "$DEBUG" ]; then
@@ -152,7 +154,7 @@ get_machine_id() {
 get_expires(){
   local now_seconds expires_seconds expires
   now_seconds="$(date --utc +"%s")"
-  let 'expires_seconds = now_seconds + 300'
+  let 'expires_seconds = now_seconds + TEST_EXPIRATION'
 
   date --iso-8601=seconds --utc --date="@$expires_seconds"
 }
@@ -189,7 +191,7 @@ run(){
     exit_code="$?"
 
     report "$report_url" "$exit_code" "$output" || exit 1
-    sleep 60
+    sleep "$TEST_INTERVAL"
   done
 }
 
