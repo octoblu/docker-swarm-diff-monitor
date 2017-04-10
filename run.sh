@@ -182,12 +182,35 @@ report() {
   > /dev/null
 }
 
+update_git() {
+  local exit_code output
+
+  pushd "/usr/src/app/repository" > /dev/null \
+  && output="$(git pull 2>&1)" \
+  && popd > /dev/null
+
+  exit_code=$?
+  if [ "$exit_code" == 0 ]; then
+    return 0
+  fi
+
+  echo "$output"
+  return $exit_code
+}
+
+single_run() {
+  update_git \
+  && env MACHINE_STORAGE_PATH="/workdir/docker-machine" docker-swarm-diff 2>&1
+}
+
 run(){
   local report_url="$1"
 
   while true; do
     local output exit_code
-    output="$(env MACHINE_STORAGE_PATH="/workdir/docker-machine" docker-swarm-diff 2>&1)"
+    exit_code="$?"
+
+    output="$(single_run)"
     exit_code="$?"
 
     report "$report_url" "$exit_code" "$output" || exit 1
