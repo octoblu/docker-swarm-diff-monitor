@@ -96,7 +96,7 @@ version(){
 connect_to_machine() {
   local machine_id found_machine_code
 
-  if [ ! -d "docker-machine/machines" ]; then
+  if [ ! -d "/workdir/docker-machine/machines" ]; then
     errecho "Missing docker-machine directory"
     return 1
   fi
@@ -114,7 +114,7 @@ connect_to_machine() {
     return 1
   fi
 
-  eval "$(docker-machine --storage-path './docker-machine' env --shell=bash "$machine_id")"
+  eval "$(docker-machine --storage-path '/workdir/docker-machine' env --shell=bash "$machine_id")"
 }
 
 errecho() {
@@ -123,11 +123,11 @@ errecho() {
 }
 
 get_machine_ids(){
-  find "docker-machine/machines" -iname "*-*-*-*" -maxdepth 1 -mindepth 1 -type d
+  find "/workdir/docker-machine/machines" -iname "*-*-*-*" -maxdepth 1 -mindepth 1 -type d
 }
 
 get_manager_machine_ids(){
-  find "docker-machine/machines" -iname "*-*-manager-*" -maxdepth 1 -mindepth 1 -type d
+  find "/workdir/docker-machine/machines" -iname "*-*-manager-*" -maxdepth 1 -mindepth 1 -type d
 }
 
 get_machine_id() {
@@ -200,6 +200,7 @@ update_git() {
 
 single_run() {
   update_git \
+  && connect_to_machine \
   && env MACHINE_STORAGE_PATH="/workdir/docker-machine" docker-swarm-diff 2>&1
 }
 
@@ -230,7 +231,7 @@ update_cert_permissions() {
 
 validate_machine_id() {
   local machine_id="$1"
-  docker-machine --storage-path './docker-machine' config "$machine_id" 2>&1 | grep -i 'error' && return 1
+  docker-machine --storage-path '/workdir/docker-machine' config "$machine_id" 2>&1 | grep -i 'error' && return 1
   return 0
 }
 
@@ -282,8 +283,6 @@ main() {
   assert_required_params "$github_token" "$github_repo" "$stack_path" "$report_url"
 
   ./setup.sh "$github_token" "$github_repo" "$stack_path" \
-  && pushd "/workdir" > /dev/null \
-  && connect_to_machine \
   && run "$report_url"
 }
 
